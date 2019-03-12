@@ -10,3 +10,7 @@ landmark_cpt_S.csv
 landmark_cpt_R.csv
 landmark_cpt_L.csv
 data.csv
+left_sonar_left_cpt.csv
+left_sonar_right_cpt.csv
+right_sonar_left_cpt.csv
+right_sonar_right_cpt.csv
