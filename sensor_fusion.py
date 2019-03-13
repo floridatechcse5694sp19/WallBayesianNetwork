@@ -13,12 +13,15 @@ num_rows, num_cols = 8, 4
 def gaussian(x, mu, var):
     return np.exp(-np.power(x - mu, 2.) / (2 * var))/np.sqrt(2*np.pi*var)
 
-def calculateSensorFusion(left_distance, right_distance):
+def calculateSonarFusion(left_distance, right_distance):
     # first number is average, second is variance
     # these characterize the normal distribution of distance at each square
     left_cpt = []
     right_cpt = []
     fusion_cpt = []
+    
+    left_distance = left_distance * meter_to_inch_conversion
+    right_distance = right_distance * meter_to_inch_conversion
 
     # load up left_cpt from its CPT CSV
     print "loading left sonar CPTs"
@@ -49,8 +52,9 @@ def calculateSensorFusion(left_distance, right_distance):
 
     for row in range(num_rows):
         print "Coordinate", row
-        leftProb = gaussian(left_distance, np.average(left_cpt[row]), np.var(left_cpt[row]))
-        rightProb = gaussian(right_distance, np.average(right_cpt[row]), np.var(right_cpt[row]))
+        print left_cpt[row][0]
+        leftProb = gaussian(left_distance, left_cpt[row][0], left_cpt[row][1])
+        rightProb = gaussian(right_distance, right_cpt[row][0], right_cpt[row][1])
         fusionProb = leftProb * rightProb
         print "Left probability: ", leftProb
         print "Right probability: ", rightProb
@@ -69,9 +73,43 @@ def calculateSensorFusion(left_distance, right_distance):
     print "most likely distance coordinate right CPT: ", right_cpt[max_index]
     print "most likely distance coordinate right probability: ",gaussian(right_distance, np.average(right_cpt[max_index]), np.var(right_cpt[max_index]))
 
-    print "Fusion Probabilities: ", fusion_cpt
+    sumProbAlpha = sum(fusion_cpt)
+    normalized_fusion_cpt = [p / sumProbAlpha for p in fusion_cpt]
+    print "Sonar Fusion Probabilities normalized: ", normalized_fusion_cpt
     
     return fusion_cpt
+
+# landmarkDetected can be 'T' or 'F'
+def calculateLandmarkColumnCpt(landmarkDetected):
+    # For this the rows/columns are reversed from how the data was taking. This is indexed by column and then row
+    # [0][0] is still the lower left of the grid with the robot facing straight
+    landmark_cpt = []
+    
+    landmark_col_cpt = [0.0 for x in range(num_cols)]
+    
+    cptFilename = 'landmark_cpt_false_S.csv'
+    if landmarkDetected == 'T':
+        cptFilename = 'landmark_cpt_true_S.csv'
+
+    with open(cptFilename) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+
+        for row in csv_reader:
+            landmarkRowProbs = map(lambda x: float(x), row[0].split(','))
+            landmark_cpt.append(landmarkRowProbs)
+            print "landmark probs: ", landmarkRowProbs
+            
+    for y in range(num_rows):
+        for x in range(num_cols):
+            landmarkProb = landmark_cpt[y][x] # Indexing is reversed for landmark CPT based on how it was loaded
+            
+            landmark_col_cpt[x] = landmark_col_cpt[x] + landmarkProb
+    
+    sumProbAlpha = sum(landmark_col_cpt)
+    normalized_landmark_cpt = [p / sumProbAlpha for p in landmark_col_cpt]
+    print "Landmark Column CPT sums normalized: ", normalized_landmark_cpt
+    
+    return landmark_col_cpt
 
 if __name__ == '__main__':
     print "type in left sonar distance from wall: "
@@ -80,4 +118,9 @@ if __name__ == '__main__':
     print "type in right sonar distance from wall: "
     right_distance = input()
     
-    calculateSensorFusion(left_distance, right_distance)
+    print "type in 'T' if a landmark was detected, or 'F' if it was not: "
+    landmarkDetected = raw_input()
+    
+    calculateSonarFusion(left_distance, right_distance)
+    
+    calculateLandmarkColumnCpt(landmarkDetected)
