@@ -18,16 +18,16 @@ def gaussian(x, mu, sig):
 
 
 # used to sum up all at specific distances
-left_samples = [np.array([]) for y in range(numRows)]
-right_samples = [np.array([]) for y in range(numRows)]
+left_samples = [np.array([]) for y in range(numCols)]
+right_samples = [np.array([]) for y in range(numCols)]
 
 for dataFile in os.listdir('sensor_data'):
 
     with open(os.path.join(sensor_folder, dataFile)) as csvfile:
         dataReader = csv.reader(csvfile)
         sensorDataList = map(tuple, dataReader)
-        left_samples_per_round = [[] for y in range(numRows)]
-        right_samples_per_round = [[] for y in range(numRows)]
+        left_samples_per_round = [[] for y in range(numCols)]
+        right_samples_per_round = [[] for y in range(numCols)]
         for row in sensorDataList:
             # Every other row is all columns so ignore those
             if row[1]:
@@ -36,18 +36,18 @@ for dataFile in os.listdir('sensor_data'):
                 if row[3] == 'L':
                     # print(str(float(row[9])*meter_to_inch_conversion) +
                     #       ", "+str(float(row[10])*meter_to_inch_conversion))
-                    left_samples_per_round[int(row[1])].append(
+                    left_samples_per_round[int(row[2])].append(
                         float(row[9])*meter_to_inch_conversion)
-                    right_samples_per_round[int(row[1])].append(
+                    right_samples_per_round[int(row[2])].append(
                         float(row[10])*meter_to_inch_conversion)
 
         # print(np.array(left_samples_per_round)[:,:])
-        for row in range(numRows):
-            left_samples[row] = np.append(
-                left_samples[row], left_samples_per_round[row])
-        for row in range(numRows):
-            right_samples[row] = np.append(
-                right_samples[row], right_samples_per_round[row])
+        for col in range(numCols):
+            left_samples[col] = np.append(
+                left_samples[col], left_samples_per_round[col])
+        for col in range(numCols):
+            right_samples[col] = np.append(
+                right_samples[col], right_samples_per_round[col])
 
         left_samples_per_round = []
         right_samples_per_round = []
@@ -55,30 +55,30 @@ for dataFile in os.listdir('sensor_data'):
 
 
 print "left sonar"
-for row in range(numRows):
-    print row, ",", "number of values: ", left_samples[row].shape, "average: ", np.average(
-        left_samples[row]), "variance: ", np.var(left_samples[row])
+for col in range(numCols):
+    print col, ",", "number of values: ", left_samples[col].shape, "average: ", np.average(
+        left_samples[col]), "variance: ", np.var(left_samples[col])
 
 
 print "right sonar"
-for row in range(numRows):
-    print row, ",", "number of values: ", right_samples[row].shape, "average: ", np.average(
-        right_samples[row]), "variance: ", np.var(right_samples[row])
+for col in range(numCols):
+    print col, ",", "number of values: ", right_samples[col].shape, "average: ", np.average(
+        right_samples[col]), "variance: ", np.var(right_samples[col])
 
 with open('left_sonar_left_cpt.csv', 'w') as csvfile:
     writer = csv.writer(csvfile)
-    for row in range(numRows):
+    for col in range(numCols):
         norms = []
         # "mean, variance"
         norms.append(
-            str(np.average(left_samples[row]))+', '+str(np.var(left_samples[row])))
+            str(np.average(left_samples[col]))+', '+str(np.var(left_samples[col])))
         writer.writerow(norms)
 
 with open('right_sonar_left_cpt.csv', 'w') as csvfile:
     writer = csv.writer(csvfile)
-    for row in range(numRows):
+    for col in range(numCols):
         norms = []
         # "mean, variance"
         norms.append(
-            str(np.average(right_samples[row]))+', '+str(np.var(right_samples[row])))
+            str(np.average(right_samples[col]))+', '+str(np.var(right_samples[col])))
         writer.writerow(norms)

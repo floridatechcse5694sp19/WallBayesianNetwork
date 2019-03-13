@@ -13,7 +13,8 @@ num_rows, num_cols = 8, 4
 def gaussian(x, mu, var):
     return np.exp(-np.power(x - mu, 2.) / (2 * var))/np.sqrt(2*np.pi*var)
 
-def calculateSonarFusion(left_distance, right_distance):
+# Orientation can be 'S', 'L', or 'R'
+def calculateSonarFusion(orientation, left_distance, right_distance):
     # first number is average, second is variance
     # these characterize the normal distribution of distance at each square
     left_cpt = []
@@ -22,10 +23,19 @@ def calculateSonarFusion(left_distance, right_distance):
     
     left_distance = left_distance * meter_to_inch_conversion
     right_distance = right_distance * meter_to_inch_conversion
-
+    
+    left_sonar_filename = 'left_sonar_straight_cpt.csv'
+    right_sonar_filename = 'right_sonar_straight_cpt.csv'
+    if orientation == 'L':
+        left_sonar_filename = 'left_sonar_left_cpt.csv'
+        right_sonar_filename = 'right_sonar_left_cpt.csv'
+    elif orientation == 'R':
+        left_sonar_filename = 'left_sonar_right_cpt.csv'
+        right_sonar_filename = 'right_sonar_right_cpt.csv'
+    
     # load up left_cpt from its CPT CSV
     print "loading left sonar CPTs"
-    with open('left_sonar_straight_cpt.csv') as csv_file:
+    with open(left_sonar_filename) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
 
         for row in csv_reader:
@@ -37,7 +47,7 @@ def calculateSonarFusion(left_distance, right_distance):
 
     # load up right_cpt from its CPT CSV
     print "loading right sonar CPTs"
-    with open('right_sonar_straight_cpt.csv') as csv_file:
+    with open(right_sonar_filename) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
 
         for row in csv_reader:
@@ -50,20 +60,34 @@ def calculateSonarFusion(left_distance, right_distance):
     # find the effective maximum probability and its associated distance coordinate (row in the convention of this program)
     max_index = 0
 
-    for row in range(num_rows):
-        print "Coordinate", row
-        leftProb = gaussian(left_distance, left_cpt[row][0], left_cpt[row][1])
-        rightProb = gaussian(right_distance, right_cpt[row][0], right_cpt[row][1])
-        fusionProb = leftProb * rightProb
-        print "Left probability: ", leftProb
-        print "Right probability: ", rightProb
-        print "Fusion probability: ", fusionProb
-        fusion_cpt.append(fusionProb)
+    if orientation == 'S':
+        for row in range(num_rows):
+            print "Coordinate", row
+            leftProb = gaussian(left_distance, left_cpt[row][0], left_cpt[row][1])
+            rightProb = gaussian(right_distance, right_cpt[row][0], right_cpt[row][1])
+            fusionProb = leftProb * rightProb
+            print "Left probability: ", leftProb
+            print "Right probability: ", rightProb
+            print "Fusion probability: ", fusionProb
+            fusion_cpt.append(fusionProb)
 
-        # no need for finding the complete probability (also factoring in normalization and probability of being in the distance coordinate), so only two multiplications are needed
-        if fusionProb > fusion_cpt[max_index]:
-            max_index = row
+            # no need for finding the complete probability (also factoring in normalization and probability of being in the distance coordinate), so only two multiplications are needed
+            if fusionProb > fusion_cpt[max_index]:
+                max_index = row
+    else:
+        for col in range(num_cols):
+            print "Coordinate", col
+            leftProb = gaussian(left_distance, left_cpt[col][0], left_cpt[col][1])
+            rightProb = gaussian(right_distance, right_cpt[col][0], right_cpt[col][1])
+            fusionProb = leftProb * rightProb
+            print "Left probability: ", leftProb
+            print "Right probability: ", rightProb
+            print "Fusion probability: ", fusionProb
+            fusion_cpt.append(fusionProb)
 
+            # no need for finding the complete probability (also factoring in normalization and probability of being in the distance coordinate), so only two multiplications are needed
+            if fusionProb > fusion_cpt[max_index]:
+                max_index = col
 
     # print most likely distance coordinate (0 being the farthest at 20 inches away from the wall)
     print "most likely distance coordinate: ", max_index
@@ -79,16 +103,21 @@ def calculateSonarFusion(left_distance, right_distance):
     return fusion_cpt
 
 # landmarkDetected can be 'T' or 'F'
-def calculateLandmarkColumnCpt(landmarkDetected):
+# Orientation can be 'S', 'L', or 'R'
+def calculateLandmarkColumnCpt(orientation, landmarkDetected):
     # For this the rows/columns are reversed from how the data was taking. This is indexed by column and then row
     # [0][0] is still the lower left of the grid with the robot facing straight
     landmark_cpt = []
     
-    landmark_col_cpt = [0.0 for x in range(num_cols)]
+    landmark_merged_cpt = []
+    if orientation == 'S':
+        landmark_merged_cpt = [0.0 for x in range(num_cols)]
+    else:
+        landmark_merged_cpt = [0.0 for x in range(num_rows)]
     
-    cptFilename = 'landmark_cpt_false_S.csv'
+    cptFilename = 'landmark_cpt_false_' + orientation + '.csv'
     if landmarkDetected == 'T':
-        cptFilename = 'landmark_cpt_true_S.csv'
+        cptFilename = 'landmark_cpt_true_' + orientation + '.csv'
 
     with open(cptFilename) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
@@ -102,13 +131,16 @@ def calculateLandmarkColumnCpt(landmarkDetected):
         for x in range(num_cols):
             landmarkProb = landmark_cpt[y][x] # Indexing is reversed for landmark CPT based on how it was loaded
             
-            landmark_col_cpt[x] = landmark_col_cpt[x] + landmarkProb
+            if orientation == 'S':
+                landmark_merged_cpt[x] = landmark_merged_cpt[x] + landmarkProb
+            else:
+                landmark_merged_cpt[y] = landmark_merged_cpt[y] + landmarkProb
     
-    sumProbAlpha = sum(landmark_col_cpt)
-    normalized_landmark_cpt = [p / sumProbAlpha for p in landmark_col_cpt]
+    sumProbAlpha = sum(landmark_merged_cpt)
+    normalized_landmark_cpt = [p / sumProbAlpha for p in landmark_merged_cpt]
     print "Landmark Column CPT sums normalized: ", normalized_landmark_cpt
     
-    return landmark_col_cpt
+    return landmark_merged_cpt
 
 if __name__ == '__main__':
     print "type in left sonar distance from wall: "
