@@ -52,7 +52,6 @@ def calculateSonarFusion(left_distance, right_distance):
 
     for row in range(num_rows):
         print "Coordinate", row
-        print left_cpt[row][0]
         leftProb = gaussian(left_distance, left_cpt[row][0], left_cpt[row][1])
         rightProb = gaussian(right_distance, right_cpt[row][0], right_cpt[row][1])
         fusionProb = leftProb * rightProb
