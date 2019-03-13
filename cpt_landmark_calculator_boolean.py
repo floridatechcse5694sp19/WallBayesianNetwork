@@ -108,13 +108,13 @@ def runLandmarkCptGeneration(sensor_folder, currentOrientation, totalLandmarkCou
 
     print(sensorLandmarkCptTable)
 
-    # Write the landmark data to a CSV file in the same orientation as the robot facing forward 
-    # (may want to change this for a script to read this in, but this is just to visualize it for now)
     with open('landmark_cpt_' + currentOrientation + '.csv', 'w') as csvfile:
         fieldnames = ['landmarkProb']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         
-        for y in range(numRows - 1 , -1, -1):
+        # This commented out part writes it in reverse so it's like you're the robot facing straight when reading the data
+        #for y in range(numRows - 1 , -1, -1):
+        for y in range(numRows):
             rowData = ""
             for x in range(numCols):
                 rowData = rowData + str(sensorLandmarkCptTable[x][y])
