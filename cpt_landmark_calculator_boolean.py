@@ -27,7 +27,8 @@ def runLandmarkCptGeneration(sensor_folder, currentOrientation, totalLandmarkCou
     numRows, numCols = 8, 4;
     sensorLandmarkCounts = [[0 for x in range(numRows)] for y in range(numCols)]
     orientationLandmarkCount = 0
-    sensorLandmarkCptTable = [[0.0 for x in range(numRows)] for y in range(numCols)]
+    sensorLandmarkCptTableTrue = [[0.0 for x in range(numRows)] for y in range(numCols)]
+    sensorLandmarkCptTableFalse = [[0.0 for x in range(numRows)] for y in range(numCols)]
     sensorTotalCounts = [[0 for x in range(numRows)] for y in range(numCols)] 
 
     # The (x,y) coordinates for right/left orientation is not the same as straight, need to map
@@ -104,11 +105,18 @@ def runLandmarkCptGeneration(sensor_folder, currentOrientation, totalLandmarkCou
     # Compute the probabilities for a given square given a landmark
     for x in range(numCols):
         for y in range(numRows):
-            sensorLandmarkCptTable[x][y] = float(sensorLandmarkCounts[x][y]) / float(totalLandmarkCountAllOrientations)
+            sensorLandmarkCptTableTrue[x][y] = float(sensorLandmarkCounts[x][y]) / float(totalLandmarkCountAllOrientations)
 
-    print(sensorLandmarkCptTable)
+    print(sensorLandmarkCptTableTrue)
+    
+    # Compute the probabilities for a given square given no landmark seen
+    for x in range(numCols):
+        for y in range(numRows):
+            sensorLandmarkCptTableFalse[x][y] = float(totalLandmarkCountAllOrientations - sensorLandmarkCounts[x][y]) / float(totalLandmarkCountAllOrientations)
 
-    with open('landmark_cpt_' + currentOrientation + '.csv', 'w') as csvfile:
+    print(sensorLandmarkCptTableFalse)
+
+    with open('landmark_cpt_true_' + currentOrientation + '.csv', 'w') as csvfile:
         fieldnames = ['landmarkProb']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         
@@ -117,7 +125,21 @@ def runLandmarkCptGeneration(sensor_folder, currentOrientation, totalLandmarkCou
         for y in range(numRows):
             rowData = ""
             for x in range(numCols):
-                rowData = rowData + str(sensorLandmarkCptTable[x][y])
+                rowData = rowData + str(sensorLandmarkCptTableTrue[x][y])
+                if x != (numCols - 1):
+                    rowData = rowData + ","
+            writer.writerow({'landmarkProb': rowData})
+            
+    with open('landmark_cpt_false_' + currentOrientation + '.csv', 'w') as csvfile:
+        fieldnames = ['landmarkProb']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
+        # This commented out part writes it in reverse so it's like you're the robot facing straight when reading the data
+        #for y in range(numRows - 1 , -1, -1):
+        for y in range(numRows):
+            rowData = ""
+            for x in range(numCols):
+                rowData = rowData + str(sensorLandmarkCptTableFalse[x][y])
                 if x != (numCols - 1):
                     rowData = rowData + ","
             writer.writerow({'landmarkProb': rowData})
