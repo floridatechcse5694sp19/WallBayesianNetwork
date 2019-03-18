@@ -2,7 +2,7 @@ import csv
 import nao_movements as Movement
 from naoqi import ALProxy
 
-ip = "192.168.1.3"
+ip = "192.168.1.2"
 port = 9559
 
 # Proxies for walking around/movement/posture
