@@ -1,4 +1,5 @@
 import math
+import time
 from naoqi import ALProxy
 
 
