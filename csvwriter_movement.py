@@ -1,5 +1,5 @@
 import csv
-import nao_movements.py as Movement
+import nao_movements as Movement
 from naoqi import ALProxy
 
 ip = "192.168.1.2"
