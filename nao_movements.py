@@ -56,7 +56,7 @@ def turnLeft(motionProxy, postureProxy):
     prepareForMove(motionProxy, postureProxy)
     
     print("Turning left")
-    motionProxy.moveTo(0.0, 0.0, math.radians(-90))
+    motionProxy.moveTo(0.0, 0.0, math.radians(90))
         
     # Wait for movement
     time.sleep(2)
@@ -66,7 +66,7 @@ def turnRight(motionProxy, postureProxy):
     prepareForMove(motionProxy, postureProxy)
     
     print("Turning right")
-    motionProxy.moveTo(0.0, 0.0, math.radians(90))
+    motionProxy.moveTo(0.0, 0.0, math.radians(-90))
         
     # Wait for movement
     time.sleep(2)
