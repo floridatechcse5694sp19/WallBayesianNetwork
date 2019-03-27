@@ -9,6 +9,24 @@ def coin(bias):
         return True
     return False
 
+# Using the transition probs from recorded data, make 10% of transition probability spread across the remaining states that previously
+# had 0 probability. Return the results in a 2D list indexed by result square and result orientation in integer form.
+def createTransitionProbMatrixWithNoise(transitionProbs):
+    endStateProbTable = [[0.0 for y in range(prob_helper.NUM_ORIENTATIONS)] for x in range(prob_helper.NUM_RESULT_SQUARES)]
+    
+    # Fill in the non-zero probabilities. Times by 0.9 to leave 10% of probability for the remaining states
+    for transitionProb in transitionProbs:
+        resultSquare = transitionProb[0]
+        resultOrientation = prob_helper.mapOrientationToNumber(transitionProb[1])
+        endStateProbTable[resultSquare][resultOrientation] = round(transitionProb[2] * 0.9, 10)
+    
+    noiseProb = 0.1 / ((prob_helper.NUM_ORIENTATIONS * prob_helper.NUM_RESULT_SQUARES) - len(transitionProbs))
+    noiseProb = round(noiseProb, 10)
+    
+    endStateProbTableWithNoise = [[noiseProb if y == 0.0 else y for y in x ] for x in endStateProbTable]
+    
+    return endStateProbTableWithNoise
+    
 # Gets the non-zero transition probabilities for motion to a destination square and orientation
 # The results returned are a list of tuples. Each tuple is of the form (ResultSquare, ResultOrientation, Probability)
 # Directed/Result orientations are 'S', 'R', and 'L'
@@ -61,5 +79,10 @@ endStateMotionProbs = loadEndStateProbs()
 # Sample calls to get transition probs. The result tuples can be used for particle filtering. This is just a test.
 transitionProbs = getTransitionProbability(endStateMotionProbs, 1, 'S')
 print("Probs when trying to move to square, orientation (1,S) are: " + str(transitionProbs))
+transitionProbTable = createTransitionProbMatrixWithNoise(transitionProbs)
+print("Probs after addind noise are: " + str(transitionProbTable))
+
 transitionProbs = getTransitionProbability(endStateMotionProbs, 8, 'R')
 print("Probs when trying to move to square, orientation (8,R) are: " + str(transitionProbs))
+transitionProbTable = createTransitionProbMatrixWithNoise(transitionProbs)
+print("Probs after addind noise are: " + str(transitionProbTable))
