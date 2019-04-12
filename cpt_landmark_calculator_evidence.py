@@ -10,8 +10,8 @@ def runLandmarkCptGeneration(sensor_folder):
     meter_to_inch_conversion = 39.37
 
     numRows, numCols = 8, 4;
-    sensorLandmarkCounts = [[[[] for z in range(prob_helper.NUM_ORIENTATIONS)] for x in range(numRows)] for y in range(numCols)]
-    sensorLandmarkCptTable = [[[0.0 for z in range(prob_helper.NUM_ORIENTATIONS)] for x in range(numRows)] for y in range(numCols)]
+    sensorLandmarkCounts = [[[[] for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
+    sensorLandmarkCptTable = [[[0.0 for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
 
     # The (x,y) coordinates for right/left orientation is not the same as straight, need to map
     # Manually mapping this seems easier given the small number of squares

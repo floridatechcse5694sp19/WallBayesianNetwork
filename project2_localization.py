@@ -26,7 +26,13 @@ def createTransitionProbMatrixWithNoise(transitionProbs):
     endStateProbTableWithNoise = [[noiseProb if y == 0.0 else y for y in x ] for x in endStateProbTable]
     
     return endStateProbTableWithNoise
-    
+
+# Gets the Probability(Landmark = True | State) where State is the square and orientation combination
+def getEvidenceProbForState(landmarkEvidenceProbs, squareColumn, squareRow, orientation):
+    orientationInt = prob_helper.mapOrientationToNumber(orientation)
+    probOfLandmark = landmarkEvidenceProbs[squareColumn][squareRow][orientationInt]
+    return probOfLandmark
+
 # Gets the non-zero transition probabilities for motion to a destination square and orientation
 # The results returned are a list of tuples. Each tuple is of the form (ResultSquare, ResultOrientation, Probability)
 # Directed/Result orientations are 'S', 'R', and 'L'
@@ -44,14 +50,14 @@ def getTransitionProbability(endStateMotionProbs, destSquare, destOrientation):
     
 # Loads end state transition probabilities when moving between squares and turning orientation. The "cpt_motion_calculator.py" script must be run
 # first to generate the "motion_cpt.csv" file 
-def loadEndStateProbs():
+def loadAllEndStateMotionProbs():
     # Table storing a list of tuples containing (square,orient,prob) for each end state
     motionProbs = [[[] for y in range(prob_helper.NUM_ORIENTATIONS)] for x in range(prob_helper.NUM_DIRECTED_SQUARES)]   
     
     with open("motion_cpt.csv") as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
-
         next(csv_reader) # Skip the header
+        
         for row in csv_reader:
             directedSquare = int(row[0])
             directedOrientation = prob_helper.mapOrientationToNumber(row[1])
@@ -70,11 +76,34 @@ def loadEndStateProbs():
     
     return motionProbs
 
+# Loads the landmark evidence probabilities for landmark being true in each square/orientation. The "landmark_cpt_evidence.py" script must be run
+# first to generate the "landmark_cpt_evidence.csv" file 
+def loadAllEvidenceProbs():
+    landmarkEvidenceProbs = [[[None for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(NUM_ROWS)] for x in range(NUM_COLS)]
+    
+    with open("landmark_cpt_evidence.csv") as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        next(csv_reader) # Skip the header
+        
+        for row in csv_reader:
+            squareCol = int(row[0])
+            squareRow = int(row[1])
+            orientation = prob_helper.mapOrientationToNumber(row[2])
+            landmarkProb = float(row[3])
+            
+            landmarkEvidenceProbs[squareCol][squareRow][orientation] = landmarkProb
+            
+    return landmarkEvidenceProbs
+
+
 ####################################
 ########### MAIN SECTION ###########
 ####################################
+NUM_COLS = 4
+NUM_ROWS = 8
 
-endStateMotionProbs = loadEndStateProbs()
+endStateMotionProbs = loadAllEndStateMotionProbs()
+landmarkEvidenceProbs = loadAllEvidenceProbs()
 
 # Sample calls to get transition probs. The result tuples can be used for particle filtering. This is just a test.
 transitionProbs = getTransitionProbability(endStateMotionProbs, 1, 'S')
@@ -86,3 +115,9 @@ transitionProbs = getTransitionProbability(endStateMotionProbs, 8, 'R')
 print("Probs when trying to move to square, orientation (8,R) are: " + str(transitionProbs))
 transitionProbTable = createTransitionProbMatrixWithNoise(transitionProbs)
 print("Probs after addind noise are: " + str(transitionProbTable))
+
+# Sample calls to get prob of landmarks for specific states
+landmarkEvidenceProb = getEvidenceProbForState(landmarkEvidenceProbs, 1, 3, 'S')
+print("Probability of seeing landmark = True in column 1, row 3, orientation straight: " + str(landmarkEvidenceProb))
+landmarkEvidenceProb = getEvidenceProbForState(landmarkEvidenceProbs, 3, 5, 'L')
+print("Probability of seeing landmark = True in column 3, row 5, orientation left: " + str(landmarkEvidenceProb))
