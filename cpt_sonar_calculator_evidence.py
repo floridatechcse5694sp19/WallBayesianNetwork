@@ -1,16 +1,41 @@
 import csv
+import numpy as np
 import os
 import cpt_motion_calculator as prob_helper
 
 
+# Generate probabilities for the sonar counts being within each range (currently range size of 1 inch) for a given state
+def calculateProbForSingleState(sonarCptTable, sonarReadings, col, row, orientation):
+    leftProbsForState = sonarCptTable[col][row][orientation]
+    
+    leftSonarValues = sonarReadings[col][row][orientation]
+    numLeftValues = len(leftSonarValues)
+    for sonarVal in leftSonarValues:
+        sonarRangeKey = getSonarRangeKey(sonarVal)
+        if sonarRangeKey in leftProbsForState:
+            leftProbsForState[sonarRangeKey] = leftProbsForState[sonarRangeKey] + 1
+        else:
+            leftProbsForState[sonarRangeKey] = 1
+    
+    for sonarValKey, numReadings in leftProbsForState.iteritems():
+        sonarCptTable[col][row][orientation][sonarValKey] = round((float(numReadings) / float(numLeftValues)), 5)
+                    
 
+# Gets the range key for a sonar value that is used for a map of sonar value range probabilities for a given state
+def getSonarRangeKey(sonarValue):
+    quotient, remainder = divmod(sonarValue, sonar_increment_size)
+    return quotient
+    
 def runLandmarkCptGeneration(sensor_folder):
-    # This method generates prob tables for a landmark being detected in each state (square/orientation)
+    # This method generates prob tables for the sonar values being within a range for each state (square/orientation)
+    
     meter_to_inch_conversion = 39.37
 
     numRows, numCols = 8, 4;
-    sensorLandmarkCounts = [[[[] for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
-    sensorLandmarkCptTable = [[[0.0 for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
+    sonarReadingsLeft = [[[[] for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
+    sonarReadingsRight = [[[[] for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
+    sonarLeftCptTable = [[[{} for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
+    sonarRightCptTable = [[[{} for z in range(prob_helper.NUM_ORIENTATIONS)] for y in range(numRows)] for x in range(numCols)]
 
     # The (x,y) coordinates for right/left orientation is not the same as straight, need to map
     # Manually mapping this seems easier given the small number of squares
@@ -70,37 +95,28 @@ def runLandmarkCptGeneration(sensor_folder):
                             mappedRowNum = colNum
                             #print('(' + str(colNum) + ',' + str(rowNum) + ') -> (' + str(mappedColNum) + ',' + str(mappedRowNum) + ')')                       
 
-                        # column 22 in a row is landmark data
-                        landmarkValue = False
-                        if float(row[22]) != 0.0:
-                            landmarkValue = True
-                        
-                        sensorLandmarkCounts[mappedColNum][mappedRowNum][destOrientationInt].append(landmarkValue)
+                        # column 9 is left sonar, column 10 is right sonar
+                        sonarReadingsLeft[mappedColNum][mappedRowNum][destOrientationInt].append(
+                            float(row[9])*meter_to_inch_conversion)
+                        sonarReadingsRight[mappedColNum][mappedRowNum][destOrientationInt].append(
+                            float(row[10])*meter_to_inch_conversion)
 
     #print(sensorLandmarkCounts)
     #print("Values for 1,5,2: " + str(sensorLandmarkCounts[1][5][2]))
     #print("Length: " + str(len(sensorLandmarkCounts[1][5][2])))
 
-    # Generate the probability table based on the landmark detected counts
+    # Generate probabilities for the sonar counts within each range for each state
     for x in range(numCols):
         for y in range(numRows):
             for z in range(prob_helper.NUM_ORIENTATIONS):
-                # Compute the probabilities for a given square/orientation given landmark true/false data for that state
-                landmarkValues = sensorLandmarkCounts[x][y][z]
-                numTrueValues = 0
-                numValues = 0
-                for landmarkVal in landmarkValues:
-                    if landmarkVal:
-                        numTrueValues = numTrueValues + 1
-                    numValues = numValues + 1
-                    
-                sensorLandmarkCptTable[x][y][z] = float(numTrueValues) / float(numValues)
+                calculateProbForSingleState(sonarLeftCptTable, sonarReadingsLeft, x, y, z)
+                calculateProbForSingleState(sonarRightCptTable, sonarReadingsRight, x, y, z)
 
-    #print("Prob for 1,4,1: " + str(sensorLandmarkCptTable[1][4][1]))
+    #print("Prob for 1,5,0: " + str(sonarRightCptTable[1][5][0]))
 
-    # Write the CSV file
-    with open('landmark_cpt_evidence.csv', 'w') as csvfile:
-        fieldnames = ['column', 'row', 'orientation', 'landmark_prob']
+    # Generate the CSV with the probabilities
+    with open('sonar_cpt_evidence.csv', 'w') as csvfile:
+        fieldnames = ['column', 'row', 'orientation', 'sonar_name', 'sonar_range_begin_val', 'probability']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         
         writer.writeheader()
@@ -111,14 +127,21 @@ def runLandmarkCptGeneration(sensor_folder):
                     col = str(x)
                     row = str(y)
                     orientation = prob_helper.mapOrientationToStr(z)
-                    landmarkProb = str(sensorLandmarkCptTable[x][y][z])
                     
-                    writer.writerow({'column': col, 'row': row, 'orientation': orientation, 'landmark_prob': landmarkProb})
+                    writeToCsv(writer, 'L', sonarLeftCptTable[x][y][z], col, row, orientation)
+                    writeToCsv(writer, 'R', sonarRightCptTable[x][y][z], col, row, orientation)
 
+# Write probabilities to a CSV for a single sonar sensor and for a single state
+def writeToCsv(writer, sonarName, probsForSingleState, col, row, orientation):   
+    for sonarRangeValKey, probVal in probsForSingleState.iteritems():
+        writer.writerow({'column': col, 'row': row, 'orientation': orientation, 'sonar_name': sonarName, 'sonar_range_begin_val': str(sonarRangeValKey), 'probability': str(probVal)})
+    
 ##############
 #### MAIN ####
 ##############
 
 sensor_folder = 'sensor_data'
+sonar_increment_size = 1.0
 
-runLandmarkCptGeneration(sensor_folder)
+if __name__ == '__main__':
+    runLandmarkCptGeneration(sensor_folder)

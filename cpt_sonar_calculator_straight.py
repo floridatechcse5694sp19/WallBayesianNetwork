@@ -34,8 +34,6 @@ for dataFile in os.listdir('sensor_data'):
                 colNum = int(row[1])
                 rowNum = int(row[2])
                 if row[3] == 'S':
-                    # print(str(float(row[9])*meter_to_inch_conversion) +
-                    #       ", "+str(float(row[10])*meter_to_inch_conversion))
                     left_samples_per_round[int(row[2])].append(
                         float(row[9])*meter_to_inch_conversion)
                     right_samples_per_round[int(row[2])].append(
