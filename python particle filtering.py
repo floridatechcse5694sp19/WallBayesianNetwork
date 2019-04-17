@@ -10,7 +10,7 @@ Created on Wed Apr 17 15:02:49 2019
 from math import *
 import random
 import matplotlib.pyplot as plt
- world_size = 162
+ 
 
 class RobotClass:
     Class for the robot model used in this demo 
