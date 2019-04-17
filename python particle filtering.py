@@ -5,17 +5,15 @@ Created on Wed Apr 17 15:02:49 2019
 @author: kholud
 """
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Setup and initialization %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# Setup and initialization 
 
 from math import *
 import random
 import matplotlib.pyplot as plt
- 
+ world_size = 162
 
 class RobotClass:
-    &quot;&quot;&quot; Class for the robot model used in this demo &quot;&quot;&quot;
+    Class for the robot model used in this demo 
  
     def __init__(self):
  
@@ -29,11 +27,11 @@ class RobotClass:
         
         #Robot’s initial position in the world can be set by:
 def set(self, new_x, new_y, new_orientation):
-    &quot;&quot;&quot; Set robot's initial position and orientation
+    Set robot initial position and orientation
     :param new_x: new x coordinate
     :param new_y: new y coordinate
     :param new_orientation: new orientation
-    &quot;&quot;&quot;
+    
  
     if new_x &lt; 0 or new_x &gt;= world_size:
         raise ValueError('X coordinate out of bound')
@@ -49,11 +47,11 @@ def set(self, new_x, new_y, new_orientation):
     #Noise parameters can be set by:
 
     def set_noise(self, new_forward_noise, new_turn_noise, new_sense_noise):
-    &quot;&quot;&quot; Set the noise parameters, changing them is often useful in particle filters
+    Set the noise parameters, changing them is often useful in particle filters
     :param new_forward_noise: new noise value for the forward movement
     :param new_turn_noise:    new noise value for the turn
     :param new_sense_noise:  new noise value for the sensing
-    &quot;&quot;&quot;
+    
  
     self.forward_noise = float(new_forward_noise)
     self.turn_noise = float(new_turn_noise)
@@ -62,9 +60,9 @@ def set(self, new_x, new_y, new_orientation):
     #The robot senses its environment receiving distance to eight landmarks. Obviously there is always some measurement noise which is modelled here as an added Gaussian with zero mean (which means there is a certain chance to be too short or too long and this probability is covered by Gaussian)
 
 def sense(self):
-    &quot;&quot;&quot; Sense the environment: calculate distances to landmarks
+    Sense the environment: calculate distances to landmarks
     :return measured distances to the known landmarks
-    &quot;&quot;&quot;
+    
  
     z = []
  
@@ -77,11 +75,11 @@ def sense(self):
 
 
 def move(self, turn, forward):
-    &quot;&quot;&quot; Perform robot's turn and move
+    Perform robot's turn and move
     :param turn:    turn command
     :param forward: forward command
     :return robot's state after the move
-    &quot;&quot;&quot;
+    
  
     if forward &lt; 0:
         raise ValueError('Robot cannot move backwards')
