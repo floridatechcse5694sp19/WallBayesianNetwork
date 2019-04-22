@@ -513,7 +513,7 @@ NUM_ROWS = 8
 
 NUM_PARTICLES = 10000
 
-IP = "192.168.1.3"
+IP = "192.168.1.2"
 ttsProxy = ALProxy("ALTextToSpeech", IP, 9559)
 motionProxy = ALProxy("ALMotion", IP, 9559)
 landmarkProxy = ALProxy("ALLandMarkDetection", IP, 9559)
