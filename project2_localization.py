@@ -1,6 +1,6 @@
 from naoqi import ALProxy
 import csv
-import nao_movements
+import nao_movements.py
 import cpt_motion_calculator as prob_helper
 import random
 from random import randint
