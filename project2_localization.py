@@ -105,6 +105,8 @@ def detectsLandmark(memoryProxy, landmarkProxy):
     time.sleep(0.250)
     landmarkProxy.pause(True) # not tested
 
+    N = 0
+    
     data = memoryProxy.getData("LandmarkDetected")
     print("Landmark Data: " + str(data))
     # if there is information in data (at least one mark)
