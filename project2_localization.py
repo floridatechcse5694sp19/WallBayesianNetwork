@@ -1,4 +1,3 @@
-# Creates a proxy on the text-to-speech module
 from naoqi import ALProxy
 import csv
 import nao_movements
@@ -298,30 +297,32 @@ def performParticleFiltering(maze_data, particles, endStateMotionProbs, landmark
     print("Probs after adding noise are: " + str(transitionProbTable))
     print("Prob for (1,0,S): " + str(transitionProbTable[1][prob_helper.mapOrientationToNumber('S')]))
     
+    landmarkReading = detectsLandmark()
+    
+    # Get sonar left first echo (distance in meters to the first obstacle).
+    leftSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Left/Sensor/Value")
+    leftSonarReading = leftSonarReading * 0.0254 # Convert to inches
+    #print("left sonar: " + str(leftSonar))
+
+    # Same thing for right.
+    rightSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Right/Sensor/Value")
+    rightSonarReading = rightSonarReading * 0.0254 # Convert to inches
+    #print("right sonar: " + str(rightSonar))
+    
+    #leftSonarReading = 10.5
+    #rightSonarReading = 10.5
+    
     for particle in particles:
         particle.transition(maze_data, transitionProbTable, command)
         
         particleX, particleY, particleH = particle.xyh
         
         landmarkProb = landmarkMazeProbs[particleY][particleX][particleH]
-        #landmarkReading = detectsLandmark()
-        #if not landmarkReading:
-        #    landmarkProb = 1 - landmarkProb
+        if not landmarkReading:
+            landmarkProb = 1 - landmarkProb
         
         #print("Landmark prob: " + str(landmarkProb))
         
-        # Get sonar left first echo (distance in meters to the first obstacle).
-        #leftSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Left/Sensor/Value")
-        #leftSonarReading = leftSonarReading * 0.0254 # Convert to inches
-        #print("left sonar: " + str(leftSonar))
-
-        # Same thing for right.
-        #rightSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Right/Sensor/Value")
-        #rightSonarReading = rightSonarReading * 0.0254 # Convert to inches
-        #print("right sonar: " + str(rightSonar))
-        
-        leftSonarReading = 10.5
-        rightSonarReading = 10.5
         
         leftSonarStateProbs = leftSonarMazeProbs[particleY][particleX][particleH]
         leftSonarReadingProb = getSonarProbForSingleReading(leftSonarStateProbs, particleX, particleY, particleH, leftSonarReading)
@@ -382,7 +383,7 @@ def speakState(particleCounts, totalParticleCount):
     
     speakText = "The most likely state I'm in is " + x + ", " + y + ", " + h + " with a probability of " + percentProbStr + " percent"
     print(speakText)
-    # ttsProxy.say(speakText) 
+    ttsProxy.say(speakText) 
 
 # ------------------------------------------------------------------------
 class Particle(object):
@@ -513,12 +514,12 @@ NUM_ROWS = 8
 NUM_PARTICLES = 10000
 
 IP = "192.168.1.3"
-#ttsProxy = ALProxy("ALTextToSpeech", IP, 9559)
-#motionProxy = ALProxy("ALMotion", IP, 9559)
-#landmarkProxy = ALProxy("ALLandMarkDetection", IP, 9559)
-#landmarkProxy.subscribe("Wall_Mark", 100, 0.0)
-#sonarProxy = ALProxy("ALSonar", IP, 9559)
-#sonarProxy.subscribe("myApplication")
+ttsProxy = ALProxy("ALTextToSpeech", IP, 9559)
+motionProxy = ALProxy("ALMotion", IP, 9559)
+landmarkProxy = ALProxy("ALLandMarkDetection", IP, 9559)
+landmarkProxy.subscribe("Wall_Mark", 100, 0.0)
+sonarProxy = ALProxy("ALSonar", IP, 9559)
+sonarProxy.subscribe("myApplication")
 
 endStateMotionProbs = loadAllEndStateMotionProbs()
 
@@ -610,11 +611,10 @@ for i in range(NUM_PARTICLES):
     particles.append(Particle(startState[0], startState[1], startState[2]))
 
 particleCounts = reloadParticleCounts(particles)
-#print(particleCounts)
 speakState(particleCounts, NUM_PARTICLES)
 
 for command in movePlan:
-    #move(command)
+    move(command)
     
     performParticleFiltering(maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command)
     
