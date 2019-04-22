@@ -262,7 +262,7 @@ def loadSingleSonarEvidenceProb(sonarEvidenceProbs, sonarNameToLoad):
                 sonarEvidenceProbs[squareCol][squareRow][orientation][sonarRangeBeginVal] = probVal
 
 
-def move(command):
+def move(command, postureProxy):
     functionList = []
     
     # Make a list of functions to call based on the command
@@ -516,6 +516,7 @@ NUM_PARTICLES = 10000
 IP = "192.168.1.3"
 ttsProxy = ALProxy("ALTextToSpeech", IP, 9559)
 motionProxy = ALProxy("ALMotion", IP, 9559)
+postureProxy = ALProxy("ALRobotPosture", IP, 9559)
 landmarkProxy = ALProxy("ALLandMarkDetection", IP, 9559)
 landmarkProxy.subscribe("Wall_Mark", 100, 0.0)
 sonarProxy = ALProxy("ALSonar", IP, 9559)
@@ -614,7 +615,7 @@ particleCounts = reloadParticleCounts(particles)
 speakState(particleCounts, NUM_PARTICLES)
 
 for command in movePlan:
-    move(command)
+    move(command, postureProxy)
     
     performParticleFiltering(maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command)
     
