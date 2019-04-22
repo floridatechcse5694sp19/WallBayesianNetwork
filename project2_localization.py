@@ -94,7 +94,7 @@ def createTransitionProbMatrixWithNoise(transitionProbs):
     
     return endStateProbTableWithNoise
 
-def detectsLandmark():
+def detectsLandmark(memoryProxy, landmarkProxy):
     motionid = motionProxy.post.angleInterpolation(
         ["HeadYaw", "HeadPitch"],
         [[0.00001, 0.0, 0.000001],[0.0, 0.000001]], [[0.00001, 0.0, 0.000001],[0.0, 0.000001]],
@@ -262,7 +262,7 @@ def loadSingleSonarEvidenceProb(sonarEvidenceProbs, sonarNameToLoad):
                 sonarEvidenceProbs[squareCol][squareRow][orientation][sonarRangeBeginVal] = probVal
 
 
-def move(command, postureProxy):
+def move(command, motionProxy, postureProxy):
     functionList = []
     
     # Make a list of functions to call based on the command
@@ -282,7 +282,7 @@ def move(command, postureProxy):
     for f in functionList:
         f(motionProxy, postureProxy)
 
-def performParticleFiltering(maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command):
+def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command):
     
     destSquare = 4
     destOrientation = 'S'
@@ -297,7 +297,7 @@ def performParticleFiltering(maze_data, particles, endStateMotionProbs, landmark
     print("Probs after adding noise are: " + str(transitionProbTable))
     print("Prob for (1,0,S): " + str(transitionProbTable[1][prob_helper.mapOrientationToNumber('S')]))
     
-    landmarkReading = detectsLandmark()
+    landmarkReading = detectsLandmark(memoryProxy, landmarkProxy)
     
     # Get sonar left first echo (distance in meters to the first obstacle).
     leftSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Left/Sensor/Value")
@@ -372,7 +372,7 @@ def reloadParticleCounts(particles):
     return particleCounts
     
 
-def speakState(particleCounts, totalParticleCount):
+def speakState(ttsProxy, particleCounts, totalParticleCount):
     mostLikelyState, mostLikelyStateCount = findMostLikelyState(particleCounts)
     x = str(mostLikelyState[0])
     y = str(mostLikelyState[1])
@@ -612,13 +612,13 @@ for i in range(NUM_PARTICLES):
     particles.append(Particle(startState[0], startState[1], startState[2]))
 
 particleCounts = reloadParticleCounts(particles)
-speakState(particleCounts, NUM_PARTICLES)
+speakState(ttsProxy, particleCounts, NUM_PARTICLES)
 
 for command in movePlan:
-    move(command, postureProxy)
+    move(command, motionProxy, postureProxy)
     
-    performParticleFiltering(maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command)
+    performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command)
     
     particleCounts = reloadParticleCounts(particles)
     #print(particleCounts)
-    speakState(particleCounts, NUM_PARTICLES)
+    speakState(ttsProxy, particleCounts, NUM_PARTICLES)
