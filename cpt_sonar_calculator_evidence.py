@@ -1,5 +1,4 @@
 import csv
-import numpy as np
 import os
 import cpt_motion_calculator as prob_helper
 
