@@ -517,6 +517,7 @@ IP = "192.168.1.2"
 ttsProxy = ALProxy("ALTextToSpeech", IP, 9559)
 motionProxy = ALProxy("ALMotion", IP, 9559)
 postureProxy = ALProxy("ALRobotPosture", IP, 9559)
+memoryProxy = ALProxy("ALMemory", IP, 9559)
 landmarkProxy = ALProxy("ALLandMarkDetection", IP, 9559)
 landmarkProxy.subscribe("Wall_Mark", 100, 0.0)
 sonarProxy = ALProxy("ALSonar", IP, 9559)
