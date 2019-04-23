@@ -37,6 +37,8 @@ def coinForWeightSampling(weightsForMazeStates):
                 runningBias = runningBias + weight
                 
                 if (n < runningBias):
+                    #print("n: " + str(n) + ", runningBias: " + str(runningBias))
+                    #print("new state: (" + str(i) + "," + str(j) + "," + orientation + ")")
                     return (i, j, orientation)
 
     return (MAZE_SIZE-2, MAZE_SIZE-2, 'R')
@@ -321,12 +323,12 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
     # Get sonar left first echo (distance in meters to the first obstacle).
     leftSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Left/Sensor/Value")
     leftSonarReading = leftSonarReading * 39.37 # Convert to inches
-    #print("left sonar: " + str(leftSonar))
+    print("left sonar: " + str(leftSonarReading))
 
     # Same thing for right.
     rightSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Right/Sensor/Value")
     rightSonarReading = rightSonarReading * 39.37 # Convert to inches
-    #print("right sonar: " + str(rightSonar))
+    print("right sonar: " + str(rightSonarReading))
     
     #leftSonarReading = 10.5
     #rightSonarReading = 10.5
@@ -376,10 +378,15 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
         
         totalWeight = totalWeight + particle.w
         
+    #print("weightsForMazeStates: " + str(weightsForMazeStates))   
+
     for x in range(MAZE_SIZE):
         for y in range(MAZE_SIZE):
-            for orientation, weight in weightsForMazeStates[particleY][particleX].iteritems():
-                weightsForMazeStates[particleY][particleX][orientation] = weight / totalWeight
+            for orientation in MAZE_ORIENTATIONS:
+                weight = weightsForMazeStates[y][x].get(orientation, None)
+                if weight is not None:
+                    #print("orientation: " + orientation + ", weight" + str(weight) + ", totalWeight: " + str(totalWeight))
+                    weightsForMazeStates[y][x][orientation] = weight / totalWeight
     
     #print("weightsForMazeStates: " + str(weightsForMazeStates))
     
@@ -547,6 +554,7 @@ maze_data = ( ( 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ),
               ( 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 ) )
 
 MAZE_SIZE = 16
+MAZE_ORIENTATIONS = ('U', 'D', 'L', 'R')
 #print(maze_data[3][1])
               
 NUM_COLS = 4
