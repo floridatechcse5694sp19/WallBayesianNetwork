@@ -15,6 +15,7 @@ def coin(bias):
     return False
     
 def coinForTransition(transitionProbs):
+    ''' Randomnly selects a square number and orientation number based on transition probabilities '''
     n = random.uniform(0, 0.999999999)
     runningBias = 0.0
     for i in range(prob_helper.NUM_RESULT_SQUARES):
@@ -27,11 +28,12 @@ def coinForTransition(transitionProbs):
     return (prob_helper.NUM_RESULT_SQUARES-1, prob_helper.NUM_ORIENTATIONS-1)
     
 def coinForWeightSampling(weightsForMazeStates):
+    ''' Randomnly selects a state (square x,y coordinate and orientation) based on weighted evidence probabilities ''' 
     n = random.uniform(0, 0.999999999)
     runningBias = 0.0
     for i in range(MAZE_SIZE):
         for j in range(MAZE_SIZE):
-            for orientation, weight in weightsForMazeStates[i][j].iteritems():
+            for orientation, weight in weightsForMazeStates[j][i].iteritems():
                 runningBias = runningBias + weight
                 
                 if (n < runningBias):
@@ -40,6 +42,9 @@ def coinForWeightSampling(weightsForMazeStates):
     return (MAZE_SIZE-2, MAZE_SIZE-2, 'R')
     
 def createMazeMapping(mazeMapping):
+    ''' Creates a mapping of the original 4x8 rectangle with landmark and evidence data to the maze which is larger
+        and contains many more squares. When no obvious mapping exists, the closest square/orientation is used to estimate
+        what the probabilities would be at that state. '''
     for x in range(NUM_COLS):
         for y in range(NUM_ROWS):
             mazeMapping[y+1][x+1]['U'] = (x, y, 'S')
@@ -95,9 +100,10 @@ def createTransitionProbMatrixWithNoise(transitionProbs):
     return endStateProbTableWithNoise
 
 def detectsLandmark(memoryProxy, landmarkProxy):
+    ''' Returns true if the Nao robot detects a landmark at the current location '''
     motionid = motionProxy.post.angleInterpolation(
         ["HeadYaw", "HeadPitch"],
-        [[0.00001, 0.0, 0.000001],[0.0, 0.000001]], [[0.00001, 0.0, 0.000001],[0.0, 0.000001]],
+        [[0.00001, 0.0, 0.000001],[0.0, 0.000001]], [[0.5, 0.75, 1.0],[0.5, 1.0]],
         True  # angle, time, absolute (vs relative to current)
         )
     time.sleep(0.5)
@@ -133,6 +139,8 @@ def getLandmarkEvidenceProbForState(landmarkEvidenceProbs, squareColumn, squareR
     return probOfLandmark
 
 def getSonarEvidenceAllProbsForState(sonarEvidenceProbs, squareColumn, squareRow, orientation):
+    ''' Gets a probability list for a specific state of a sonar reading falling in a certain range,
+        based on the supplied full sonarEvidenceProbs table '''
     orientationInt = prob_helper.mapOrientationToNumber(orientation)
     sonarProbsForState = sonarEvidenceProbs[squareColumn][squareRow][orientationInt]
     
@@ -150,6 +158,8 @@ def getSonarEvidenceProbForState(sonarEvidenceProbs, squareColumn, squareRow, or
     return probOfSonarVal
 
 def getSonarProbForSingleReading(sonarProbsForState, squareColumn, squareRow, orientation, sonarVal):
+    ''' Gets the probability of a sonar reading occurring if the robot is in a given state. Uses the closest range
+        available if data is not available for the current range. A range is by default 1 inch increments '''
     sonarKey = sonar_helper.getSonarRangeKey(sonarVal)
     
     probOfSonarVal = 0.0
@@ -265,6 +275,11 @@ def loadSingleSonarEvidenceProb(sonarEvidenceProbs, sonarNameToLoad):
 
 
 def move(command, motionProxy, postureProxy):
+    ''' Directs the Nao robot to physically move to a specific square or orientation relative to itself
+        0  1  2
+        3  4  5
+        6  7  8 
+        Where 4 is the current square '''
     functionList = []
     
     # Make a list of functions to call based on the command
@@ -285,7 +300,9 @@ def move(command, motionProxy, postureProxy):
         f(motionProxy, postureProxy)
 
 def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command):
-    
+    ''' Performs particle filtering for the robot by first transitioning the particels to a new state based on transition probabilities.
+        Then make landmark/sonar readings and weight the particles based on the evidence probabilities and resample the particles '''
+        
     destSquare = 4
     destOrientation = 'S'
     if command == 'L' or command == 'R':
@@ -303,17 +320,19 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
     
     # Get sonar left first echo (distance in meters to the first obstacle).
     leftSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Left/Sensor/Value")
-    leftSonarReading = leftSonarReading * 0.0254 # Convert to inches
+    leftSonarReading = leftSonarReading * 39.37 # Convert to inches
     #print("left sonar: " + str(leftSonar))
 
     # Same thing for right.
     rightSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Right/Sensor/Value")
-    rightSonarReading = rightSonarReading * 0.0254 # Convert to inches
+    rightSonarReading = rightSonarReading * 39.37 # Convert to inches
     #print("right sonar: " + str(rightSonar))
     
     #leftSonarReading = 10.5
     #rightSonarReading = 10.5
     
+    # Transition the particles and make evidence measurements using vision and sonar. Make new weights for the particles
+    # based on the measurement probabilities
     for particle in particles:
         particle.transition(maze_data, transitionProbTable, command)
         
@@ -321,7 +340,7 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
         
         landmarkProb = landmarkMazeProbs[particleY][particleX][particleH]
         if not landmarkReading:
-            landmarkProb = 1 - landmarkProb
+            landmarkProb = 1.0 - landmarkProb
         
         #print("Landmark prob: " + str(landmarkProb))
         
@@ -331,15 +350,19 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
         rightSonarStateProbs = rightSonarMazeProbs[particleY][particleX][particleH]
         rightSonarReadingProb = getSonarProbForSingleReading(rightSonarStateProbs, particleX, particleY, particleH, rightSonarReading)
         
+        #print("Left sonar reading: " + str(leftSonarReading))
         #print("Left sonar prob: " + str(leftSonarReadingProb))
+        #print("Right sonar reading: " + str(rightSonarReading))
         #print("Right sonar prob: " + str(rightSonarReadingProb))
         
         particleWeight = landmarkProb * leftSonarReadingProb * rightSonarReadingProb
         particle.w = particleWeight
+        #print("Particle weight: " + str(particle.w))
     
     weightsForMazeStates = [[{} for y in range(MAZE_SIZE)] for x in range(MAZE_SIZE)]
     totalWeight = 0.0
     
+    # Update weights in the maze weight map based on the new particle weights
     for particle in particles:
         particleX, particleY, particleH = particle.xyh
         
@@ -360,6 +383,7 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
     
     #print("weightsForMazeStates: " + str(weightsForMazeStates))
     
+    # Resample the particles based on the new weights.
     for particle in particles:
         (newX, newY, newH) = coinForWeightSampling(weightsForMazeStates)
         particle.X = newX
@@ -367,6 +391,7 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
         particle.H = newH
     
 def reloadParticleCounts(particles):
+    ''' Creates a dict of each state (square + orientation) with counts for how many particles fall into each state '''
     particleCounts = {}
     for particle in particles:
         particleCounts[particle.xyh] = particleCounts.get(particle.xyh, 0) + 1
@@ -375,20 +400,29 @@ def reloadParticleCounts(particles):
     
 
 def speakState(ttsProxy, particleCounts, totalParticleCount):
+    ''' Directs the Nao robot to speak aloud the most likely state it is in with a probability based on the number of particles '''
     mostLikelyState, mostLikelyStateCount = findMostLikelyState(particleCounts)
     x = str(mostLikelyState[0])
     y = str(mostLikelyState[1])
     h = mostLikelyState[2]
+    heading = "down"
+    if h == 'L':
+        heading = "left"
+    elif h == 'R':
+        heading = "right"
+    elif h == 'U':
+        heading = "up"
     
-    prob = (float(mostLikelyStateCount) / float(totalParticleCount)) * 100
+    prob = (float(mostLikelyStateCount) / float(totalParticleCount)) * 100.00
     percentProbStr = str(int(prob))
     
-    speakText = "The most likely state I'm in is " + x + ", " + y + ", " + h + " with a probability of " + percentProbStr + " percent"
+    speakText = "The most likely state I'm in is " + x + ", " + y + ", " + heading + " with a probability of " + percentProbStr + " percent"
     print(speakText)
     ttsProxy.say(speakText) 
 
 # ------------------------------------------------------------------------
 class Particle(object):
+    ''' Represents a particle at a specific location in the mazy, along with a weight based on evidence '''
     def __init__(self, x, y, heading, w=1):
 
         self.x = x
@@ -408,6 +442,8 @@ class Particle(object):
         return (self.x, self.y, self.h)
         
     def transition(self, maze_data, transitionProbTable, command):
+        ''' The particle will move to a new state randomnly based on the actual command the robot was directed to 
+            move to and the probabilities of it transitioning to various states given that command '''
         deltaX = 0
         deltaY = 0
         
@@ -465,6 +501,7 @@ class Particle(object):
         tempX = self.x + deltaX
         tempY = self.y + deltaY
         
+        # Check to see if the particle ended up in an invalid square based on the maze map. Correct it if it did.
         if tempY >= len(maze_data) or tempX >= len(maze_data[0]) or maze_data[tempY][tempX] > 0:
             for i in range(5):
                 if deltaX > 0:
@@ -490,6 +527,8 @@ class Particle(object):
 ########### MAIN SECTION ###########
 ####################################
 
+# Map of the maze. '0' are open squares, '2' are open squares but are ignored for this project due to data being gathered
+# for a 4x8 rectangle only in project 1. '1' are inaccessible locations.
 maze_data = ( ( 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ),
               ( 2, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ),
               ( 2, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ),
@@ -541,6 +580,8 @@ mazeMapping = [[{} for y in range(MAZE_SIZE)] for x in range(MAZE_SIZE)]
 createMazeMapping(mazeMapping)
 #print(mazeMapping)       
 
+# Create a mapping for the maze with probabilities of detecting a landmark in each state. This is based off of the original
+# 4x8 square data gathered from project 1.
 for x in range(MAZE_SIZE):
     for y in range(MAZE_SIZE):
         if maze_data[x][y] == 0:
@@ -555,6 +596,8 @@ for x in range(MAZE_SIZE):
                 
 #print(landmarkMazeProbs)
 
+# Create a mapping for the maze with probabilities of reading a left sonar value in each state. This is based off of the original
+# 4x8 square data gathered from project 1.
 for x in range(MAZE_SIZE):
     for y in range(MAZE_SIZE):
         if maze_data[x][y] == 0:
@@ -567,6 +610,8 @@ for x in range(MAZE_SIZE):
 
 #print(leftSonarMazeProbs)
 
+# Create a mapping for the maze with probabilities of reading a right sonar value in each state. This is based off of the original
+# 4x8 square data gathered from project 1.
 for x in range(MAZE_SIZE):
     for y in range(MAZE_SIZE):
         if maze_data[x][y] == 0:
@@ -577,6 +622,33 @@ for x in range(MAZE_SIZE):
                 
                 rightSonarMazeProbs[x][y][orientation] = getSonarEvidenceAllProbsForState(rightSonarEvidenceProbs, origX, origY, origH)
             
+
+startState = (3, 2, 'D')
+#movePlan = ['1', '1']
+# A move can be a new orientation or a square relative to the current one. See the move method.
+movePlan = ['1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', 'L', '1', '1', '1', '1', '1', '1', '1']
+
+particleCounts = {}
+particles = []
+
+for i in range(NUM_PARTICLES):
+    particles.append(Particle(startState[0], startState[1], startState[2]))
+
+particleCounts = reloadParticleCounts(particles)
+speakState(ttsProxy, particleCounts, NUM_PARTICLES)
+
+for command in movePlan:
+    # Direct the robot to move
+    move(command, motionProxy, postureProxy)
+    
+    # Perform particle filtering to estimate where the robot is after the movement
+    performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command)
+    
+    # Update the probabilities after particle filtering and output the results
+    particleCounts = reloadParticleCounts(particles)
+    speakState(ttsProxy, particleCounts, NUM_PARTICLES)
+
+    
 '''
 # Sample calls to get transition probs. The result tuples can be used for particle filtering. This is just a test.
 transitionProbs = getTransitionProbability(endStateMotionProbs, 1, 'S')
@@ -603,25 +675,3 @@ print("Probability of seeing left sonar val = 12.5 inches in column 1, row 3, or
 rightSonarEvidenceProb = getSonarEvidenceProbForState(rightSonarEvidenceProbs, 1, 3, 'L', 7.23)
 print("Probability of seeing right sonar val = 7.23 inches in column 1, row 3, orientation left: " + str(rightSonarEvidenceProb))
 '''
-
-startState = (3, 2, 'D')
-#movePlan = ['1', '1']
-movePlan = ['1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', 'L', '1', '1', '1', '1', '1', '1', '1']
-
-particleCounts = {}
-particles = []
-
-for i in range(NUM_PARTICLES):
-    particles.append(Particle(startState[0], startState[1], startState[2]))
-
-particleCounts = reloadParticleCounts(particles)
-speakState(ttsProxy, particleCounts, NUM_PARTICLES)
-
-for command in movePlan:
-    move(command, motionProxy, postureProxy)
-    
-    performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command)
-    
-    particleCounts = reloadParticleCounts(particles)
-    #print(particleCounts)
-    speakState(ttsProxy, particleCounts, NUM_PARTICLES)
