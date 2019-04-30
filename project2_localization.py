@@ -1,5 +1,6 @@
 from naoqi import ALProxy
 import csv
+import copy
 import nao_movements
 import cpt_motion_calculator as prob_helper
 import random
@@ -101,7 +102,7 @@ def createTransitionProbMatrixWithNoise(transitionProbs):
     
     return endStateProbTableWithNoise
 
-def detectsLandmark(memoryProxy, landmarkProxy):
+def detectedLandmarks(memoryProxy, landmarkProxy):
     ''' Returns true if the Nao robot detects a landmark at the current location '''
     motionid = motionProxy.post.angleInterpolation(
         ["HeadYaw", "HeadPitch"],
@@ -113,16 +114,21 @@ def detectsLandmark(memoryProxy, landmarkProxy):
     time.sleep(0.250)
     landmarkProxy.pause(True) # not tested
 
-    N = 0
+    detectedLandmarks = []
     
     data = memoryProxy.getData("LandmarkDetected")
     print("Landmark Data: " + str(data))
     # if there is information in data (at least one mark)
     if (data):
         markInfoArray = data[1]
+        markInfo0 = markInfoArray[0]
+        markExtraInfo = markInfo0[1]
+        
+        mid = markExtraInfo[0]
+        detectedLandmarks.append(int(mid))
         N = len(markInfoArray)
     
-    return N > 0
+    return detectedLandmarks
 
 def findMostLikelyState(particleCounts):
     mostLikelyState = ()
@@ -159,6 +165,36 @@ def getSonarEvidenceProbForState(sonarEvidenceProbs, squareColumn, squareRow, or
         
     return probOfSonarVal
 
+def getSonarReadingTest(commandNumber):
+    sonarReading = 20.5
+    
+    if commandNumber == 5:
+        sonarReading = 18.0
+    elif commandNumber == 6:
+        sonarReading = 16.0
+    elif commandNumber == 7:
+        sonarReading = 14.0
+    elif commandNumber == 8:
+        sonarReading = 12.0
+    elif commandNumber == 9:
+        sonarReading = 10.0
+    elif commandNumber == 10:
+        sonarReading = 8.0
+    elif commandNumber == 13:
+        sonarReading = 18.0
+    elif commandNumber == 14:
+        sonarReading = 16.0
+    elif commandNumber == 15:
+        sonarReading = 14.0
+    elif commandNumber == 16:
+        sonarReading = 12.0
+    elif commandNumber == 17:
+        sonarReading = 10.0
+    elif commandNumber == 18:
+        sonarReading = 8.0
+        
+    return sonarReading
+    
 def getSonarProbForSingleReading(sonarProbsForState, squareColumn, squareRow, orientation, sonarVal):
     ''' Gets the probability of a sonar reading occurring if the robot is in a given state. Uses the closest range
         available if data is not available for the current range. A range is by default 1 inch increments '''
@@ -301,7 +337,81 @@ def move(command, motionProxy, postureProxy):
     for f in functionList:
         f(motionProxy, postureProxy)
 
-def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command):
+def filterLandmarkProbsForReading(landmarkMazeProbs, landmarkMazeLocations, landmarksDetected):
+    landmarkMazeProbsUpdated = copy.deepcopy(landmarkMazeProbs)
+    
+    landmark_unlikely_prob = 0.000001
+    
+    for landmarkId in landmarksDetected:
+        print("filterLandmarkProbsForReading, landmarkId: " + str(landmarkId))
+        if landmarkMazeLocations[landmarkId] == (13,15):
+            print("Filtering for landmark at location (13,15)")
+            for x in range(MAZE_SIZE):
+                for y in range(MAZE_SIZE):
+                    landmarkMazeProbsUpdated[y][x]['L'] = landmark_unlikely_prob
+                    landmarkMazeProbsUpdated[y][x]['U'] = landmark_unlikely_prob
+                    landmarkMazeProbsUpdated[y][x]['D'] = landmark_unlikely_prob
+                    if y < 11 or x < 4:
+                        landmarkMazeProbsUpdated[y][x]['R'] = landmark_unlikely_prob
+        elif landmarkMazeLocations[landmarkId] == (15,11):
+            print("Filtering for landmark at location (15,11)")
+            for x in range(MAZE_SIZE):
+                for y in range(MAZE_SIZE):
+                    landmarkMazeProbsUpdated[y][x]['L'] = landmark_unlikely_prob
+                    landmarkMazeProbsUpdated[y][x]['U'] = landmark_unlikely_prob
+                    if y < 9 or x > 11:
+                        landmarkMazeProbsUpdated[y][x]['R'] = landmark_unlikely_prob
+                    if y < 6 or x < 5:
+                        landmarkMazeProbsUpdated[y][x]['D'] = landmark_unlikely_prob
+        elif landmarkMazeLocations[landmarkId] == (15,2):
+            print("Filtering for landmark at location (15,2)")
+            for x in range(MAZE_SIZE):
+                for y in range(MAZE_SIZE):
+                    landmarkMazeProbsUpdated[y][x]['U'] = landmark_unlikely_prob
+                    if y < 9 or x < 2:
+                        landmarkMazeProbsUpdated[y][x]['L'] = landmark_unlikely_prob
+                    if y < 9 or x > 2:
+                        landmarkMazeProbsUpdated[y][x]['R'] = landmark_unlikely_prob
+                    if x > 6:
+                        landmarkMazeProbsUpdated[y][x]['D'] = landmark_unlikely_prob
+        elif landmarkMazeLocations[landmarkId] == (12,0):
+            print("Filtering for landmark at location (12,0")
+            for x in range(MAZE_SIZE):
+                for y in range(MAZE_SIZE):
+                    if y < 12:
+                        landmarkMazeProbsUpdated[y][x]['U'] = landmark_unlikely_prob
+                    if y < 6:
+                        landmarkMazeProbsUpdated[y][x]['L'] = landmark_unlikely_prob
+                    landmarkMazeProbsUpdated[y][x]['R'] = landmark_unlikely_prob
+                    if x > 6:
+                        landmarkMazeProbsUpdated[y][x]['D'] = landmark_unlikely_prob
+        elif landmarkMazeLocations[landmarkId] == (4,5):
+            print("Filtering for landmark at location (4,5)")
+            for x in range(MAZE_SIZE):
+                for y in range(MAZE_SIZE):
+                    if x > 5 or y < 4:
+                        landmarkMazeProbsUpdated[y][x]['U'] = landmark_unlikely_prob
+                    landmarkMazeProbsUpdated[y][x]['L'] = landmark_unlikely_prob
+                    if y > 12 or x > 5:
+                        landmarkMazeProbsUpdated[y][x]['R'] = landmark_unlikely_prob
+                    if y > 4 or x > 5:
+                        landmarkMazeProbsUpdated[y][x]['D'] = landmark_unlikely_prob
+        elif landmarkMazeLocations[landmarkId] == (4,0):
+            print("Filtering for landmark at location (4,0)")
+            for x in range(MAZE_SIZE):
+                for y in range(MAZE_SIZE):
+                    if (x > 6 and y > 10) or y < 4:
+                        landmarkMazeProbsUpdated[y][x]['U'] = landmark_unlikely_prob
+                    if (x < 4 and y > 10) or (y > 10 and x > 8):
+                        landmarkMazeProbsUpdated[y][x]['L'] = landmark_unlikely_prob
+                    landmarkMazeProbsUpdated[y][x]['R'] = landmark_unlikely_prob
+                    if y > 4:
+                        landmarkMazeProbsUpdated[y][x]['D'] = landmark_unlikely_prob
+                        
+                        
+    return landmarkMazeProbsUpdated
+    
+def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, landmarkMazeLocations, leftSonarMazeProbs, rightSonarMazeProbs, command, commandNumber):
     ''' Performs particle filtering for the robot by first transitioning the particels to a new state based on transition probabilities.
         Then make landmark/sonar readings and weight the particles based on the evidence probabilities and resample the particles '''
         
@@ -313,13 +423,24 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
         destSquare = int(command)
         
     transitionProbs = getTransitionProbability(endStateMotionProbs, destSquare, destOrientation)
-    print("Probs when trying to move to square, orientation (1,S) are: " + str(transitionProbs))
+    print("Probs (without noise) when trying to move to square, orientation: (" + str(destSquare) + "," + destOrientation + ") are: " + str(transitionProbs))
     transitionProbTable = createTransitionProbMatrixWithNoise(transitionProbs)
-    print("Probs after adding noise are: " + str(transitionProbTable))
+    #print("Probs after adding noise are: " + str(transitionProbTable))
     print("Prob for (1,0,S): " + str(transitionProbTable[1][prob_helper.mapOrientationToNumber('S')]))
     
-    landmarkReading = detectsLandmark(memoryProxy, landmarkProxy)
+    landmarksDetected = detectedLandmarks(memoryProxy, landmarkProxy)
     
+    # For local testing
+    #landmarksDetected = []
+    #if commandNumber == 14:
+    #    landmarksDetected = [105]
+    #elif commandNumber == 17:
+    #    landmarksDetected = [105]
+    #leftSonarReading = getSonarReadingTest(commandNumber)
+    #rightSonarReading = getSonarReadingTest(commandNumber)
+    
+    landmarkMazeProbsUpdated = filterLandmarkProbsForReading(landmarkMazeProbs, landmarkMazeLocations, landmarksDetected)
+                    
     # Get sonar left first echo (distance in meters to the first obstacle).
     leftSonarReading = memoryProxy.getData("Device/SubDeviceList/US/Left/Sensor/Value")
     leftSonarReading = leftSonarReading * 39.37 # Convert to inches
@@ -330,8 +451,7 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
     rightSonarReading = rightSonarReading * 39.37 # Convert to inches
     print("right sonar: " + str(rightSonarReading))
     
-    #leftSonarReading = 10.5
-    #rightSonarReading = 10.5
+    landmarkReading = len(landmarksDetected) > 0
     
     # Transition the particles and make evidence measurements using vision and sonar. Make new weights for the particles
     # based on the measurement probabilities
@@ -339,8 +459,9 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
         particle.transition(maze_data, transitionProbTable, command)
         
         particleX, particleY, particleH = particle.xyh
+        #print(str(particle.xyh))
         
-        landmarkProb = landmarkMazeProbs[particleY][particleX][particleH]
+        landmarkProb = landmarkMazeProbsUpdated[particleY][particleX][particleH]
         if not landmarkReading:
             landmarkProb = 1.0 - landmarkProb
         
@@ -393,9 +514,9 @@ def performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, e
     # Resample the particles based on the new weights.
     for particle in particles:
         (newX, newY, newH) = coinForWeightSampling(weightsForMazeStates)
-        particle.X = newX
-        particle.Y = newY
-        particle.H = newH
+        particle.x = newX
+        particle.y = newY
+        particle.h = newH
     
 def reloadParticleCounts(particles):
     ''' Creates a dict of each state (square + orientation) with counts for how many particles fall into each state '''
@@ -425,7 +546,7 @@ def speakState(ttsProxy, particleCounts, totalParticleCount):
     
     speakText = "The most likely state I'm in is " + x + ", " + y + ", " + heading + " with a probability of " + percentProbStr + " percent"
     print(speakText)
-    ttsProxy.say(speakText) 
+    #ttsProxy.say(speakText) 
 
 # ------------------------------------------------------------------------
 class Particle(object):
@@ -560,9 +681,9 @@ MAZE_ORIENTATIONS = ('U', 'D', 'L', 'R')
 NUM_COLS = 4
 NUM_ROWS = 8
 
-NUM_PARTICLES = 10000
+NUM_PARTICLES = 5000
 
-IP = "192.168.1.2"
+IP = "192.168.1.3"
 ttsProxy = ALProxy("ALTextToSpeech", IP, 9559)
 motionProxy = ALProxy("ALMotion", IP, 9559)
 postureProxy = ALProxy("ALRobotPosture", IP, 9559)
@@ -571,6 +692,12 @@ landmarkProxy = ALProxy("ALLandMarkDetection", IP, 9559)
 landmarkProxy.subscribe("Wall_Mark", 100, 0.0)
 sonarProxy = ALProxy("ALSonar", IP, 9559)
 sonarProxy.subscribe("myApplication")
+#ttsProxy = None
+#motionProxy = None
+#postureProxy = None
+#memoryProxy = None
+#landmarkProxy = None
+#sonarProxy = None
 
 endStateMotionProbs = loadAllEndStateMotionProbs()
 
@@ -579,6 +706,7 @@ leftSonarEvidenceProbs = loadAllLeftSonarEvidenceProbs()
 rightSonarEvidenceProbs = loadAllRightSonarEvidenceProbs()
 
 landmarkMazeProbs = [[{} for y in range(MAZE_SIZE)] for x in range(MAZE_SIZE)]
+landmarkMazeLocations = {}
 leftSonarMazeProbs = [[{} for y in range(MAZE_SIZE)] for x in range(MAZE_SIZE)]
 rightSonarMazeProbs = [[{} for y in range(MAZE_SIZE)] for x in range(MAZE_SIZE)]
 
@@ -592,29 +720,42 @@ createMazeMapping(mazeMapping)
 # 4x8 square data gathered from project 1.
 for x in range(MAZE_SIZE):
     for y in range(MAZE_SIZE):
-        if maze_data[x][y] == 0:
-            for orientation, mapping in mazeMapping[x][y].iteritems():
+        if maze_data[y][x] == 0:
+            for orientation, mapping in mazeMapping[y][x].iteritems():
                 origX = mapping[0]
                 origY = mapping[1]
                 origH = mapping[2]
                 
                 origProb = getLandmarkEvidenceProbForState(landmarkEvidenceProbs, origX, origY, origH)
                 
-                landmarkMazeProbs[x][y][orientation] = origProb
+                landmarkMazeProbs[y][x][orientation] = origProb
                 
 #print(landmarkMazeProbs)
+
+# Landmark locations
+landmarkMazeLocations[114] = (4,0)
+landmarkMazeLocations[119] = (4,0)
+#landmarkMazeLocations[101] = (4,5)
+landmarkMazeLocations[80] = (12,0)
+landmarkMazeLocations[84] = (12,0)
+landmarkMazeLocations[64] = (15,2)
+landmarkMazeLocations[68] = (15,2)
+landmarkMazeLocations[108] = (15,11)
+landmarkMazeLocations[112] = (15,11)
+landmarkMazeLocations[85] = (13,15)
+landmarkMazeLocations[107] = (13,15)
 
 # Create a mapping for the maze with probabilities of reading a left sonar value in each state. This is based off of the original
 # 4x8 square data gathered from project 1.
 for x in range(MAZE_SIZE):
     for y in range(MAZE_SIZE):
-        if maze_data[x][y] == 0:
-            for orientation, mapping in mazeMapping[x][y].iteritems():
+        if maze_data[y][x] == 0:
+            for orientation, mapping in mazeMapping[y][x].iteritems():
                 origX = mapping[0]
                 origY = mapping[1]
                 origH = mapping[2]
                 
-                leftSonarMazeProbs[x][y][orientation] = getSonarEvidenceAllProbsForState(leftSonarEvidenceProbs, origX, origY, origH)
+                leftSonarMazeProbs[y][x][orientation] = getSonarEvidenceAllProbsForState(leftSonarEvidenceProbs, origX, origY, origH)
 
 #print(leftSonarMazeProbs)
 
@@ -622,13 +763,13 @@ for x in range(MAZE_SIZE):
 # 4x8 square data gathered from project 1.
 for x in range(MAZE_SIZE):
     for y in range(MAZE_SIZE):
-        if maze_data[x][y] == 0:
-            for orientation, mapping in mazeMapping[x][y].iteritems():
+        if maze_data[y][x] == 0:
+            for orientation, mapping in mazeMapping[y][x].iteritems():
                 origX = mapping[0]
                 origY = mapping[1]
                 origH = mapping[2]
                 
-                rightSonarMazeProbs[x][y][orientation] = getSonarEvidenceAllProbsForState(rightSonarEvidenceProbs, origX, origY, origH)
+                rightSonarMazeProbs[y][x][orientation] = getSonarEvidenceAllProbsForState(rightSonarEvidenceProbs, origX, origY, origH)
             
 
 startState = (3, 2, 'D')
@@ -645,16 +786,22 @@ for i in range(NUM_PARTICLES):
 particleCounts = reloadParticleCounts(particles)
 speakState(ttsProxy, particleCounts, NUM_PARTICLES)
 
+commandNumber = 0
 for command in movePlan:
     # Direct the robot to move
     move(command, motionProxy, postureProxy)
     
     # Perform particle filtering to estimate where the robot is after the movement
-    performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, leftSonarMazeProbs, rightSonarMazeProbs, command)
+    performParticleFiltering(memoryProxy, landmarkProxy, maze_data, particles, endStateMotionProbs, landmarkMazeProbs, landmarkMazeLocations, leftSonarMazeProbs, rightSonarMazeProbs, command, commandNumber)
     
+    #for particle in particles:
+    #    print(str(particle.xyh))
     # Update the probabilities after particle filtering and output the results
     particleCounts = reloadParticleCounts(particles)
+    #print(particleCounts)
     speakState(ttsProxy, particleCounts, NUM_PARTICLES)
+    
+    commandNumber += 1
 
     
 '''
